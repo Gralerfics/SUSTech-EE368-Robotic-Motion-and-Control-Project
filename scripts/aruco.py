@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 
 # from kalman import KalmanFilter
+from particles import ParticleFilter
 
 
 class ArucoDetector:
@@ -30,6 +31,7 @@ class ArucoMarker:
     def __init__(self, id):
         self.id = id
         # self.kf = KalmanFilter(0.1, 6, 6)
+        self.pf = ParticleFilter(1000, 6, 6)
         self.pose = None
 
 
@@ -42,5 +44,8 @@ class ArucoMarker:
 
     def get_pose(self):
         # return self.kf.x
-        return self.pose
+        
+        return np.average(self.pf.particles, axis = 0, weights = self.pf.weights)
+        
+        # return self.pose
 

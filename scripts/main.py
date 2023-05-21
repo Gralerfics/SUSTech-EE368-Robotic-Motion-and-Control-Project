@@ -10,7 +10,7 @@ import maths
 
 # Hand-eye Calibration Data
 R_0_E = maths.quat2dcm([-0.0246767, 0.968246, -0.248064, 0.0188425])
-P_0_E = maths.col([0.378836, 0.380062, 0.423619])
+P_0_E = np.array([0.378836, 0.380062, 0.423619])
 T_0_E = maths.RP2T(R_0_E, P_0_E)
 
 
@@ -21,9 +21,9 @@ marker = ArucoMarker(1)
 
 
 try:
-    arm.init()
-    arm.move_home()
-    arm.set_gripper_position(1.0)
+    # arm.init()
+    # arm.move_home()
+    # arm.set_gripper_position(1.0)
 
     cam.init()
     
@@ -39,22 +39,17 @@ try:
 
             pose = marker.get_pose()
             if pose is not None:
-                R_E_P, P_E_P = maths.rotvec2dcm(pose[0:3]), maths.col(pose[3:6])
+                R_E_P, P_E_P = maths.rotvec2dcm(pose[0:3]), pose[3:6]
                 T_E_P = maths.RP2T(R_E_P, P_E_P)
                 T_0_P = np.dot(T_0_E, T_E_P)
                 
-                X_P_target = np.array([0.15, -0.15, 0.2]).reshape(3, 1)
-                X_0_target = np.dot(T_0_P, np.vstack((X_P_target, [1])))[0:3]
-                V_0_target = np.array([0, 0, 0]).reshape(3, 1)
+                X_P_target = np.array([0.1, -0.1, 0.2])
+                X_0_target = np.dot(T_0_P, np.hstack((X_P_target, [1])))[0:3]
+                V_0_target = np.array([0, 0, 0])
                 
-                # cur_pose = arm.get_current_cartesian_pose()
-                # cur_vel = arm.get_current_cartesian_velocity()
-                # X_0 = maths.col(cur_pose[0:3])
-                # V_0 = maths.col(cur_vel[0:3])
-                # E_X = X_0_target - X_0
-                # E_V = V_0_target - V_0
                 
-                # E_Ang = 
+                
+                # arm.set_cartesian_pose(maths.col2row(X_0_target).tolist() + [90, 0, 160])
                 
         
         cv2.imshow('image', detector.draw(frame, corners, rvecs, tvecs, cam.K, cam.Kcoeffs))
@@ -65,9 +60,9 @@ finally:
     cam.close()
     cv2.destroyAllWindows()
     
-    arm.move_home()
-    arm.stop_motioning()
-    arm.close()
+    # arm.move_home()
+    # arm.stop_motioning()
+    # arm.close()
 
 
 # def delay(t):
