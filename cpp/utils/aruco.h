@@ -13,15 +13,16 @@
 
 class ArucoDetector {
 private:
+    float marker_size;
     cv::Ptr<cv::aruco::Dictionary> dictionary = nullptr;
     cv::Ptr<cv::aruco::DetectorParameters> parameters = nullptr;
     std::shared_ptr<RealSense> camera = nullptr;
 
 public:
-    ArucoDetector(std::shared_ptr<RealSense> camera, cv::aruco::PREDEFINED_DICTIONARY_NAME dictionary);
+    ArucoDetector(std::shared_ptr<RealSense> camera, cv::aruco::PREDEFINED_DICTIONARY_NAME dictionary, float marker_size);
     ~ArucoDetector() {}
 
-    void Detect(cv::Mat &image, float marker_length, std::vector<int> &ids, std::vector<Vector3f> &rvecs, std::vector<Vector3f> &tvecs, bool draw = false);
+    void Detect(cv::Mat &image, std::vector<int> &ids, std::vector<Vector3f> &rvecs, std::vector<Vector3f> &tvecs, bool draw = false);
 };
 
 class ArucoMarker {
@@ -39,6 +40,8 @@ public:
     
     void Update(Vector3f rvec, Vector3f tvec);
     Vector6f GetRtVec();
+
+
 };
 
 #endif

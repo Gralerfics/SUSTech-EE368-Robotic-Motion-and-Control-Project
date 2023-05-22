@@ -1,19 +1,20 @@
 #include "aruco.h"
 
 
-ArucoDetector::ArucoDetector(std::shared_ptr<RealSense> camera, cv::aruco::PREDEFINED_DICTIONARY_NAME dictionary_name){
+ArucoDetector::ArucoDetector(std::shared_ptr<RealSense> camera, cv::aruco::PREDEFINED_DICTIONARY_NAME dictionary_name, float marker_size){
     this->camera = camera;
+    this->marker_size = marker_size;
     dictionary = cv::aruco::getPredefinedDictionary(dictionary_name);
     parameters = cv::aruco::DetectorParameters::create();
 }
 
-void ArucoDetector::Detect(cv::Mat &image, float marker_length, std::vector<int> &ids, std::vector<Vector3f> &rvecs, std::vector<Vector3f> &tvecs, bool draw) {
+void ArucoDetector::Detect(cv::Mat &image, std::vector<int> &ids, std::vector<Vector3f> &rvecs, std::vector<Vector3f> &tvecs, bool draw) {
     std::vector<std::vector<cv::Point2f>> marker_corners, rejected_candidates;
     cv::aruco::detectMarkers(image, dictionary, marker_corners, ids, parameters, rejected_candidates, camera->GetKForOpenCV(), camera->GetDForOpenCV());
     
     if (ids.size() > 0) {
         std::vector<cv::Vec3d> rvecs_cv, tvecs_cv;
-        cv::aruco::estimatePoseSingleMarkers(marker_corners, marker_length, camera->GetKForOpenCV(), camera->GetDForOpenCV(), rvecs_cv, tvecs_cv);
+        cv::aruco::estimatePoseSingleMarkers(marker_corners, marker_size, camera->GetKForOpenCV(), camera->GetDForOpenCV(), rvecs_cv, tvecs_cv);
 
         rvecs.clear();
         tvecs.clear();

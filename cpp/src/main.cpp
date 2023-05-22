@@ -11,10 +11,13 @@ void delay(double s) {
 int main(int argc, char **argv) {
     std::shared_ptr<Gen3Lite> arm(new Gen3Lite());
     std::shared_ptr<RealSense> cam(new RealSense());
-    ArucoDetector detector(cam, cv::aruco::DICT_ARUCO_ORIGINAL);
+
+    // ArucoDetector detector(cam, cv::aruco::DICT_4X4_50, 0.06);
+    ArucoDetector detector(cam, cv::aruco::DICT_ARUCO_ORIGINAL, 0.05);
     // std::vector<ArucoMarker> markers(4);
     ArucoMarker marker(1);
-    PIDController<Vector3f> linear_controller(1.2, 0.03, 0.2);
+
+    PIDController<Vector3f> linear_controller(1.6, 0.03, 0.4);
     PIDController<Vector2f> angular_controller(100.0, 1.0, -10.0);
 
     Matrix3f R_0_E = quat2dcm(Quaternionf(0.0188425, -0.0246767, 0.968246, -0.248064)); // w, x, y, z
@@ -33,7 +36,7 @@ int main(int argc, char **argv) {
 
         std::vector<int> ids;
         std::vector<Vector3f> rvecs, tvecs;
-        detector.Detect(frame, 0.05, ids, rvecs, tvecs, true);
+        detector.Detect(frame, ids, rvecs, tvecs, true);
 
         if (!ids.empty()) {
             for (size_t i = 0; i < ids.size(); i ++) {
@@ -56,7 +59,7 @@ int main(int argc, char **argv) {
             Matrix4f T_0_H = pose2T(current_pose);
             Matrix4f T_H_0 = T_0_H.inverse();
 
-            Vector4f X_P_target_homo = Vector4f(0.1, -0.1, 0.15, 1.0);
+            Vector4f X_P_target_homo = Vector4f(0.0, 0.0, -0.1, 1.0);
             Vector3f X_H_target = (T_H_0 * T_0_P * X_P_target_homo).block<3, 1>(0, 0);
             Vector3f V_H_target = Vector3f(0.0, 0.0, 0.0);
 
