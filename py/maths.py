@@ -10,8 +10,8 @@ def rotvec2dcm(rotvec):
     return Rotation.from_rotvec(rotvec).as_dcm()
 
 
-def dcm2euler(R, degrees = True):
-    return Rotation.from_dcm(R).as_euler('xyz', degrees = degrees)
+# def dcm2euler(R, degrees = True):
+#     return Rotation.from_dcm(R).as_euler('xyz', degrees = degrees)
 
 
 def euler2dcm(euler, degrees = True):

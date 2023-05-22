@@ -69,6 +69,7 @@
         "forward_list": "cpp",
         "cfenv": "cpp",
         "typeindex": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "geometry": "cpp"
     }
 }

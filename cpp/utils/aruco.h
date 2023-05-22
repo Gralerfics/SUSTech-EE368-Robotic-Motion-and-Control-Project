@@ -19,7 +19,7 @@ private:
 
 public:
     ArucoDetector(std::shared_ptr<RealSense> camera, cv::aruco::PREDEFINED_DICTIONARY_NAME dictionary);
-    ~ArucoDetector();
+    ~ArucoDetector() {}
 
     void Detect(cv::Mat &image, float marker_length, std::vector<int> &ids, std::vector<Vector3f> &rvecs, std::vector<Vector3f> &tvecs, bool draw = false);
 };
@@ -32,11 +32,13 @@ private:
     std::vector<float> weights;
 
 public:
-    ArucoMarker(int id, int num = 100);
-    ~ArucoMarker();
+    ArucoMarker(int id, int num = 50);
+    ~ArucoMarker() {}
 
+    int GetId() { return id; }
+    
     void Update(Vector3f rvec, Vector3f tvec);
-    Vector6f GetRTVecs();
+    Vector6f GetRtVec();
 };
 
 #endif

@@ -55,10 +55,12 @@ try:
                 current_pose = arm.get_current_cartesian_pose()
                 current_velocity = arm.get_current_cartesian_velocity()
                 
-                kinematics = arm.get_kinematics()
-                if kinematics is None:
-                    continue
-                T_0_H = maths.pose2T(kinematics)
+                # kinematics = arm.get_kinematics()
+                # if kinematics is None:
+                #     continue
+                # T_0_H = maths.pose2T(kinematics)
+                # T_H_0 = np.linalg.inv(T_0_H)
+                T_0_H = maths.pose2T(current_pose)
                 T_H_0 = np.linalg.inv(T_0_H)
                 
                 X_P_target = np.array([0.1, -0.1, 0.12])
@@ -71,7 +73,6 @@ try:
                 
                 R_H_P = np.dot(T_H_0[0:3, 0:3], T_0_P[0:3, 0:3])
                 normal_H = R_H_P[:, 2]
-                print(normal_H)
                 E_normal_H = np.array([normal_H[2], -normal_H[0]])
                 dOmega = ang_controller.step(E_normal_H, None)
                 

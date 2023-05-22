@@ -7,9 +7,6 @@ ArucoDetector::ArucoDetector(std::shared_ptr<RealSense> camera, cv::aruco::PREDE
     parameters = cv::aruco::DetectorParameters::create();
 }
 
-ArucoDetector::~ArucoDetector() {
-}
-
 void ArucoDetector::Detect(cv::Mat &image, float marker_length, std::vector<int> &ids, std::vector<Vector3f> &rvecs, std::vector<Vector3f> &tvecs, bool draw) {
     std::vector<std::vector<cv::Point2f>> marker_corners, rejected_candidates;
     cv::aruco::detectMarkers(image, dictionary, marker_corners, ids, parameters, rejected_candidates, camera->GetKForOpenCV(), camera->GetDForOpenCV());
@@ -20,7 +17,7 @@ void ArucoDetector::Detect(cv::Mat &image, float marker_length, std::vector<int>
 
         rvecs.clear();
         tvecs.clear();
-        for (auto i = 0; i < ids.size(); i ++) {
+        for (size_t i = 0; i < ids.size(); i ++) {
             Vector3f rvec_eigen, tvec_eigen;
             rvec_eigen(0) = rvecs_cv[i][0];
             rvec_eigen(1) = rvecs_cv[i][1];
@@ -41,43 +38,41 @@ ArucoMarker::ArucoMarker(int id, int num) {
     this->num = num;
     Vector6f zero_vec;
     zero_vec << 0, 0, 0, 0, 0, 0;
-    for (auto i = 0; i < num; i ++) {
+    float fac = 1.0 / num;
+    for (int i = 0; i < num; i ++) {
         rt_vecs.push_back(zero_vec);
-        weights.push_back(1 / num);
+        weights.push_back(fac);
     }
 }
 
-ArucoMarker::~ArucoMarker() {
+void ArucoMarker::Update(Vector3f rvec, Vector3f tvec) {
+    Vector6f rt_vec;
+    rt_vec << rvec(0), rvec(1), rvec(2), tvec(0), tvec(1), tvec(2);
+    
+    // Add
+    rt_vecs.erase(rt_vecs.begin());
+    rt_vecs.push_back(rt_vec);
+
+    // Update Weights
+    float sum = 0.0;
+    for (int i = 0; i < num; i ++) {
+        float norm = (rt_vec - rt_vecs[i]).norm();
+        if (norm < 1e-6) {
+            weights[i] = 1e6;
+        } else {
+            weights[i] = 1.0 / norm;
+        }
+        sum += weights[i];
+    }
+    for (int i = 0; i < num; i ++) {
+        weights[i] /= sum;
+    }
 }
 
-// void ArucoMarker::Update(Vector3f rvec, Vector3f tvec) {
-//     Vector6f rt_vec;
-//     rt_vec << rvec(0), rvec(1), rvec(2), tvec(0), tvec(1), tvec(2);
-//     // Predict
-//     Vector6f current = GetRTVecs();
-//     Vector6f increasement = rt_vec - current;
-//     for (auto i = 0; i < num; i ++) {
-//         rt_vecs[i] += increasement;
-//     }
-//     // Update
-//     float sum = 0.0;
-//     for (auto i = 0; i < num; i ++) {
-//         float norm = (current - rt_vecs[i]).norm();
-//         if norm < 1e-6 {
-//             weights[i] = 1e6;
-//         } else {
-//             weights[i] = 1.0 / norm;
-//         }
-//         sum += weights[i];
-//     }
-//     // Resample
-
-// }
-
-// Vector6f ArucoMarker::GetRTVecs() {
-//     Vector6f average;
-//     for (auto i = 0; i < num; i ++) {
-//         average += rt_vecs[i] * weights[i];
-//     }
-//     return average;
-// }
+Vector6f ArucoMarker::GetRtVec() {
+    Vector6f average = Vector6f::Zero();
+    for (auto i = 0; i < num; i ++) {
+        average += rt_vecs[i] * weights[i];
+    }
+    return average;
+}
