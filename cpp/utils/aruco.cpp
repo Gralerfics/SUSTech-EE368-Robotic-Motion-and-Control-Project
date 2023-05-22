@@ -36,7 +36,7 @@ void ArucoDetector::Detect(cv::Mat &image, float marker_length, std::vector<int>
     }
 }
 
-ArucoMarker::ArucoMarker(int id, int num = 100) {
+ArucoMarker::ArucoMarker(int id, int num) {
     this->id = id;
     this->num = num;
     Vector6f zero_vec;
