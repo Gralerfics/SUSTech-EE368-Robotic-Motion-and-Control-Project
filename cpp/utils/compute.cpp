@@ -10,6 +10,11 @@ Matrix3f rotvec2dcm(Vector3f rotvec) {
     return ret.toRotationMatrix();
 }
 
+Vector3f dcm2rotvec(Matrix3f dcm) {
+    AngleAxisf ret(dcm);
+    return ret.angle() * ret.axis();
+}
+
 Matrix3f euler2dcm(Vector3f euler, bool degree) {
     Matrix3f ret;
     if (degree) {

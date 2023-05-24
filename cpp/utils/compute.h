@@ -12,6 +12,8 @@ Matrix3f quat2dcm(Quaternionf quat);
 
 Matrix3f rotvec2dcm(Vector3f rotvec);
 
+Vector3f dcm2rotvec(Matrix3f dcm);
+
 Matrix3f euler2dcm(Vector3f euler, bool degree = true);
 
 Matrix4f Rt2T(Matrix3f R, Vector3f t);

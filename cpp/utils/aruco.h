@@ -31,17 +31,18 @@ private:
     int num;
     std::vector<Vector6f> rt_vecs;
     std::vector<float> weights;
+    Matrix4f T_M_P;
 
 public:
-    ArucoMarker(int id, int num = 50);
+    ArucoMarker(int id, int num = 50, Matrix4f T_M_P = Matrix4f::Identity());
     ~ArucoMarker() {}
 
     int GetId() { return id; }
-    
+    Matrix4f GetT_M_P() { return T_M_P; }
+    void SetT_M_P(Vector3f rvec, Vector3f tvec);
+
     void Update(Vector3f rvec, Vector3f tvec);
     Vector6f GetRtVec();
-
-
 };
 
 #endif
