@@ -11,6 +11,10 @@ void delay(double s) {
     std::this_thread::sleep_for(std::chrono::microseconds((int) (s * 1000000)));
 }
 
+time_t getTime() {
+    return std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
+}
+
 class CircleTrajectory: public Trajectory {
 private:
     float R, Omega;
@@ -28,13 +32,39 @@ public:
     }
 };
 
-const float POSITION_CHANGE_THRESHOLD = 0.05;
-const float ANGULAR_CHANGE_THRESHOLD = 0.05; // TODO: Use Quaternion ?
-const float ON_TARGET_EPS = 0.001;
-const float PEN_UP_DISTANCE = 0.15;
-const float PEN_DOWN_DISTANCE = 0.08;
+class FourierTrajectory: public Trajectory {
+private:
+    float baseOmega;
+    std::vector<float> magnitudes, phases, signs;
 
-enum TState { TAKEN_UP, TAKING_DOWN, DRAWING };
+public:
+    FourierTrajectory(float period, float t, std::vector<float>& magnitudes, std::vector<float>& phases, std::vector<float>& signs): Trajectory(period, t) {
+        baseOmega = 2 * M_PI / period;
+        this->magnitudes = magnitudes;
+        this->phases = phases;
+        this->signs = signs;
+    }
+    ~FourierTrajectory() {}
+
+    Vector3f GetPosition() {
+        float x = 0.0, y = 0.0, omega = baseOmega;
+        for (size_t i = 0; i < magnitudes.size(); i ++) {
+            x += magnitudes[i] * cos(signs[i] * omega * t + phases[i]);
+            y += magnitudes[i] * sin(signs[i] * omega * t + phases[i]);
+        }
+        return Vector3f(x, y, 0.0);
+    }
+
+    Vector3f GetVelocity() {
+        float vx = 0.0, vy = 0.0, omega = baseOmega;
+        for (size_t i = 0; i < magnitudes.size(); i ++) {
+            vx -= magnitudes[i] * signs[i] * omega * sin(signs[i] * omega * t + phases[i]);
+            vy += magnitudes[i] * signs[i] * omega * cos(signs[i] * omega * t + phases[i]);
+        }
+    }
+};
+
+const float PEN_DOWN_DISTANCE = 0.1;
 
 int main(int argc, char **argv) {
     // Arm
@@ -51,7 +81,7 @@ int main(int argc, char **argv) {
     // Aruco Markers
     ArucoDetector detector(cam, cv::aruco::DICT_4X4_50, 0.06);
     std::vector<ArucoMarker> markers;
-    for (size_t i = 0; i <= 4; i ++) markers.push_back(ArucoMarker(i));
+    for (size_t i = 0; i <= 4; i ++) markers.push_back(ArucoMarker(i, 200));
     markers[1 - 1].SetT_M_P(Vector3f(0.0, 0.0, M_PI), Vector3f(0.16990917, 0.0975, 0.0));
     markers[2 - 1].SetT_M_P(Vector3f(0.0, 0.0, 2 * M_PI), Vector3f(0.17297744, 0.0975, 0.0));
     markers[3 - 1].SetT_M_P(Vector3f(0.0, 0.0, M_PI / 2), Vector3f(0.0975, 0.17248443, 0.0));
@@ -60,29 +90,29 @@ int main(int argc, char **argv) {
     coMarker.SetT_M_P(Vector3f(0.0, 0.0, 2 * M_PI), Vector3f(0.0, 0.0, 0.0));
 
     // Controllers
-    PIDController<Vector3f> linear_controller(1.6, 0.03, 0.2);
-    PIDController<Vector2f> angular_controller(100.0, 1.0, -1.0);
+    PIDController<Vector3f> linear_controller(1.6, 0.03, 0.4);      // 1.6, 0.01, 0.1
+    PIDController<Vector2f> angular_controller(100.0, 1.0, -10.0);  // 80.0, 0.01, -5.0
     linear_controller.Init();
     angular_controller.Init();
 
-    // State Machine and Trajectory
-    TState state = TAKEN_UP;
-    CircleTrajectory trajectory(4.0, 0.0, 0.08);
+    // Trajectory
+    std::vector<float> magnitudes = {0.05, 0.04, 0.02, 0.016};
+    std::vector<float> phases = {0.0, M_PI, M_PI / 2, -M_PI / 2};
+    std::vector<float> signs = {-1.0, 1.0, -2.0, 2.0};
+    FourierTrajectory trajectory(10.0, 0.0, magnitudes, phases, signs);
 
     // Main Loop
     int lost_frames = 0;
-    time_t last_time, current_time;
-    last_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
-    int stable_frames = 0;
+    time_t last_time = getTime(), current_time;
     Vector6f last_rtvec = coMarker.GetRtVec();
 
     try {
         while (true) {
             // Timing
-            current_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
+            current_time = getTime();
             float dt = (current_time - last_time) / 1000000.0;
             last_time = current_time;
-            printf("%.2f fps\n", 1.0 / dt);
+            // printf("%.2f fps\n", 1.0 / dt);
 
             // Video Capture
             cv::Mat frame = cam->GetColorFrame();
@@ -115,8 +145,6 @@ int main(int argc, char **argv) {
                 tvec_acc /= ids.size();
                 coMarker.Update(rvec_acc, tvec_acc);
                 Vector6f rtvec = coMarker.GetRtVec();
-                Vector3f delta_rvec = rtvec.head<3>() - last_rtvec.head<3>();
-                Vector3f delta_tvec = rtvec.tail<3>() - last_rtvec.tail<3>();
                 last_rtvec = rtvec;
                 Matrix4f T_0_P = RtVec2T(rtvec);
 
@@ -129,16 +157,16 @@ int main(int argc, char **argv) {
                 Matrix4f T_H_P = T_H_0 * T_0_P;
 
                 Vector3f X_P_target = trajectory.GetPosition();
-                X_P_target(2) += (state == TAKEN_UP) ? PEN_UP_DISTANCE : PEN_DOWN_DISTANCE;
+                X_P_target(2) += PEN_DOWN_DISTANCE;
                 Vector3f X_H_target = (T_H_P * Vector4f(X_P_target(0), X_P_target(1), X_P_target(2), 1.0)).block<3, 1>(0, 0);
 
                 Vector3f V_P_target = trajectory.GetVelocity();
-                Vector3f V_H_target = T_H_P.block<3, 3>(0, 0) * V_P_target;
+                Vector3f V_H_target = Vector3f::Zero(); // T_H_P.block<3, 3>(0, 0) * V_P_target;
 
                 Vector3f V_H_measure = T_H_0.block<3, 3>(0, 0) * current_twist.block<3, 1>(0, 0);
                 Vector3f X_H_error = X_H_target; // - (0, 0, 0)
                 Vector3f V_H_error = V_H_target - V_H_measure;
-                Vector3f LinearTwist = linear_controller.Step(dt, X_H_error, V_H_error);
+                Vector3f LinearTwist = linear_controller.Step(dt, X_H_error, V_H_error); // + 0.05 * X_H_target / dt;
 
                 Matrix3f R_H_P = T_H_0.block<3, 3>(0, 0) * T_0_P.block<3, 3>(0, 0);
                 Vector3f n_H = R_H_P.block<3, 1>(0, 2);
@@ -148,25 +176,8 @@ int main(int argc, char **argv) {
                 Vector6f Twist;
                 Twist << LinearTwist(0), LinearTwist(1), LinearTwist(2), AngularTwist(0), 0.0, AngularTwist(1);
                 arm->SetTwist(Twist, k_api::Common::CARTESIAN_REFERENCE_FRAME_TOOL);
-
-                // Update State
-                if (delta_rvec.norm() > ANGULAR_CHANGE_THRESHOLD || delta_tvec.norm() > POSITION_CHANGE_THRESHOLD) {
-                    // Unstable
-                    stable_frames = 0;
-                    state = TAKEN_UP;
-                } else {
-                    // Stable
-                    stable_frames += 1;
-                    if (state == TAKEN_UP and stable_frames > 10) {
-                        state = TAKING_DOWN;
-                    } else if (state == TAKING_DOWN) {
-                        if (X_H_error.norm() < ON_TARGET_EPS) { // 落笔到位
-                            state = DRAWING;
-                        }
-                    } else {
-                        trajectory.Update(dt);
-                    }
-                }
+                
+                // trajectory.Update(dt);
             } else {
                 // Losting Detection
                 lost_frames += 1;
